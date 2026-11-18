@@ -1,0 +1,14 @@
+# Binaries and build output
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Local configuration: never commit values
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store

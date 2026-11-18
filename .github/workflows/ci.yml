@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ['1.22', 'stable']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - name: Contract kit is unchanged
+        if: ${{ !cancelled() }}
+        env:
+          # SHA-256 of the four files of contract/, concatenated in this order. The folder is copied
+          # unchanged from the Node.js repository: never edit it here.
+          CONTRACT_SHA256: 88a0474d13d3c4d36fc28fc51491c0b18d9c6e32f9107a51b3aecf21b5f8b69b
+        run: |
+          test "$(ls -A contract | tr '\n' ' ')" = "API.es.md API.md checklist.md signature-vectors.json "
+          actual="$(cat contract/API.es.md contract/API.md contract/checklist.md contract/signature-vectors.json | sha256sum | cut -d ' ' -f 1)"
+          echo "contract: $actual"
+          test "$actual" = "$CONTRACT_SHA256"
+      - name: Format (gofmt)
+        if: ${{ !cancelled() }}
+        run: |
+          gofmt -d .
+          test -z "$(gofmt -l .)"
+      - name: Vet
+        if: ${{ !cancelled() }}
+        run: go vet ./...
+      - name: Tests (race detector)
+        if: ${{ !cancelled() }}
+        run: go test -race -count=1 ./...
+      - name: Run both examples against a local fake API
+        if: ${{ !cancelled() }}
+        run: go test -count=1 -v -run 'TestRequestTowExample|TestWebhookServerExample' ./examples
